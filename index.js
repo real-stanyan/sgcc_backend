@@ -1,6 +1,7 @@
 // index.js
 import express from "express";
 import cors from "cors";
+import serverless from "serverless-http";
 import yaowenRouter from "./routes/yaowenRoutes.js";
 
 const app = express();
@@ -15,3 +16,4 @@ app.use("/api", yaowenRouter);
 app.get("/", (req, res) => res.send("Hello World"));
 
 app.listen(3000);
+export default serverless(app);
