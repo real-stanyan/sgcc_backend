@@ -2,7 +2,7 @@
 import express from "express";
 import cors from "cors";
 import serverless from "serverless-http";
-import yaowenRouter from "./routes/yaowenRoutes.js";
+import yaowenRouter from "../routes/yaowenRoutes.js";
 
 const app = express();
 app.use(cors());
