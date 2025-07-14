@@ -4,19 +4,19 @@ import path from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_PATH = path.join(__dirname, "../data/YaoWen.json");
+const DATA_PATH = path.join(__dirname, "../data/KuaiXun.json");
 
 // in-memory map to track last visit timestamp per item
 const lastVisitTimestamps = new Map();
 // threshold for de-duplication (ms)
 const VISIT_THRESHOLD_MS = 1000;
 
-export const ReturnAllYaoWen = async (req, res) => {
+export const ReturnAllKuaiXun = async (req, res) => {
   const file = await fs.readFile(DATA_PATH, "utf-8");
   return res.json(JSON.parse(file));
 };
 
-export const AddNewYaoWen = async (req, res) => {
+export const AddNewKuaiXun = async (req, res) => {
   try {
     const file = await fs.readFile(DATA_PATH, "utf-8");
     const arr = JSON.parse(file);
@@ -30,7 +30,7 @@ export const AddNewYaoWen = async (req, res) => {
   }
 };
 
-export const ReturnYaoWenByID = async (req, res) => {
+export const ReturnKuaiXunByID = async (req, res) => {
   try {
     const file = await fs.readFile(DATA_PATH, "utf-8");
     const arr = JSON.parse(file);
