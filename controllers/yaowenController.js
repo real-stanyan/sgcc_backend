@@ -1,50 +1,47 @@
+// controllers/yaowenController.js
 import fs from "fs/promises";
-import { fileURLToPath } from "url";
+import { readFileSync } from "fs";
 import path from "path";
-import yaowenData from "../data/YaoWen.json" assert { type: "json" };
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_PATH = path.join(__dirname, "../data/YaoWen.json");
 
+// ───────────── 读取一次，存到内存 ─────────────
+let yaowenData = JSON.parse(readFileSync(DATA_PATH, "utf-8"));
+
+// ───────────── 所有要闻 ─────────────
 export const ReturnAllYaoWen = (req, res) => {
   res.json(yaowenData);
 };
 
-export const AddNewYaoWen = async (req, res) => {
-  try {
-    // 1. 读取现有数据
-    const file = await fs.readFile(DATA_PATH, "utf-8");
-    const arr = JSON.parse(file);
+// ───────────── 按 ID 查询 ─────────────
+export const ReturnYaoWenByID = (req, res) => {
+  const { id } = req.params; // /yaowen/:id
+  const item = yaowenData.find((e) => String(e.id) === String(id));
 
-    // 2. 从请求体拿到新要闻
-    const newItem = req.body;
-    //    （建议在这里做一些校验，比如 newItem.id, title 等必须字段）
-
-    // 3. 插入数组
-    arr.push(newItem);
-
-    // 4. 写回文件
-    await fs.writeFile(
-      DATA_PATH,
-      JSON.stringify(arr, null, 2), // 格式化：2 个空格缩进
-      "utf-8"
-    );
-
-    // 5. 返回新数据
-    res.status(201).json(newItem);
-  } catch (err) {
-    console.error("写入要闻失败：", err);
-    res.status(500).json({ error: "保存失败" });
-  }
+  if (!item) return res.status(404).json({ error: "要闻未找到" });
+  res.json(item);
 };
 
-export const ReturnYaoWenByID = (req, res) => {
-  const { id } = req.params;
-  console.log(id);
-  const item = yaowenData.find((entry) => entry.id === id);
-  if (!item) {
-    return res.status(404).json({ error: "要闻未找到" });
+// ───────────── 添加新要闻 ─────────────
+export const AddNewYaoWen = async (req, res) => {
+  try {
+    const newItem = req.body;
+    if (!newItem.id || !newItem.title) {
+      return res.status(400).json({ error: "缺少必填字段" });
+    }
+
+    // 更新内存
+    yaowenData.push(newItem);
+
+    // 持久化到文件
+    await fs.writeFile(DATA_PATH, JSON.stringify(yaowenData, null, 2), "utf-8");
+
+    res.status(201).json(newItem);
+  } catch (err) {
+    console.error("写入要闻失败:", err);
+    res.status(500).json({ error: "保存失败" });
   }
-  res.json(item);
 };
