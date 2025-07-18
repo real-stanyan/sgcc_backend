@@ -11,7 +11,9 @@ const pool = mysql.createPool({
 // 返回所有数据
 export const ReturnAllRouxingtuandui = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM Rouxingtuandui");
+    const [rows] = await pool.query(
+      "SELECT * FROM Rouxingtuandui ORDER BY i ASC"
+    );
     res.json(rows);
   } catch (err) {
     console.error("MySQL 查询失败", err);
@@ -41,6 +43,7 @@ export const AddNewRouxingtuandui = async (req, res) => {
   try {
     const {
       id,
+      i,
       manager,
       team_leader,
       area,
@@ -50,17 +53,17 @@ export const AddNewRouxingtuandui = async (req, res) => {
       team_heros,
       contact,
       team_members,
-      CreatedAt,
     } = req.body;
 
     await pool.query(
       `INSERT INTO Rouxingtuandui
-         (id, manager, team_leader, area,
+         (id, i, manager, team_leader, area,
           team_sub_leader, research_titles, projects,
-          team_heros, contact, team_members, CreatedAt)
+          team_heros, contact, team_members)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
+        i,
         manager,
         team_leader,
         area,
@@ -70,12 +73,12 @@ export const AddNewRouxingtuandui = async (req, res) => {
         JSON.stringify(team_heros),
         JSON.stringify(contact),
         JSON.stringify(team_members),
-        CreatedAt,
       ]
     );
 
     res.status(201).json({
       id,
+      i,
       manager,
       team_leader,
       area,
@@ -85,7 +88,6 @@ export const AddNewRouxingtuandui = async (req, res) => {
       team_heros,
       contact,
       team_members,
-      CreatedAt,
     });
   } catch (err) {
     console.error("MySQL 插入失败", err);
@@ -115,6 +117,7 @@ export const EditRouxingtuanduiByID = async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      i,
       manager,
       team_leader,
       area,
@@ -124,7 +127,6 @@ export const EditRouxingtuanduiByID = async (req, res) => {
       team_heros,
       contact,
       team_members,
-      CreatedAt,
     } = req.body;
 
     // normalize JSON fields
@@ -135,15 +137,9 @@ export const EditRouxingtuanduiByID = async (req, res) => {
     const contactJson = JSON.stringify(contact);
     const membersJson = JSON.stringify(team_members);
 
-    // format CreatedAt
-    let createdAtFormatted = CreatedAt;
-    if (typeof CreatedAt === "string") {
-      const d = new Date(CreatedAt);
-      createdAtFormatted = d.toISOString().slice(0, 19).replace("T", " ");
-    }
-
     const sql = `
       UPDATE Rouxingtuandui SET
+        i               = ?,
         manager         = ?,
         team_leader     = ?,
         area            = ?,
@@ -157,6 +153,7 @@ export const EditRouxingtuanduiByID = async (req, res) => {
       WHERE id = ?
     `;
     const params = [
+      i,
       manager,
       team_leader,
       area,
@@ -166,7 +163,6 @@ export const EditRouxingtuanduiByID = async (req, res) => {
       herosJson,
       contactJson,
       membersJson,
-      createdAtFormatted,
       id,
     ];
 
@@ -176,6 +172,7 @@ export const EditRouxingtuanduiByID = async (req, res) => {
     }
     res.json({
       id,
+      i,
       manager,
       team_leader,
       area,
@@ -185,10 +182,55 @@ export const EditRouxingtuanduiByID = async (req, res) => {
       team_heros,
       contact,
       team_members,
-      CreatedAt: createdAtFormatted,
     });
   } catch (err) {
     console.error("MySQL 更新失败", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// 数据升序：将 i 与 i-1 交换
+export const IncreaseRouxingtuanduiOrderByI = async (req, res) => {
+  const i = parseInt(req.params.i, 10);
+  if (isNaN(i) || i <= 1) return res.status(400).json({ error: "invalid i" });
+  const prev = i - 1;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // 用 0 做占位（i 从 1 开始）
+    await conn.query("UPDATE Rouxingtuandui SET i = 0 WHERE i = ?", [prev]);
+    await conn.query("UPDATE Rouxingtuandui SET i = ? WHERE i = ?", [prev, i]);
+    await conn.query("UPDATE Rouxingtuandui SET i = ? WHERE i = 0", [i]);
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+};
+
+// 数据降序：将 i 与 i+1 交换
+export const DecreaseRouxingtuanduiOrderByI = async (req, res) => {
+  const i = parseInt(req.params.i, 10);
+  if (isNaN(i)) return res.status(400).json({ error: "invalid i" });
+
+  const next = i + 1;
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+    // 用 0 做占位
+    await conn.query("UPDATE Rouxingtuandui SET i = 0 WHERE i = ?", [next]);
+    await conn.query("UPDATE Rouxingtuandui SET i = ? WHERE i = ?", [next, i]);
+    await conn.query("UPDATE Rouxingtuandui SET i = ? WHERE i = 0", [i]);
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
   }
 };

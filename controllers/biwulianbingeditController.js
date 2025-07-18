@@ -11,7 +11,9 @@ const pool = mysql.createPool({
 // 返回所有数据
 export const ReturnAllBiwulianbing = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM Biwulianbing");
+    const [rows] = await pool.query(
+      "SELECT * FROM Biwulianbing ORDER BY i ASC"
+    );
     res.json(rows);
   } catch (err) {
     console.error("MySQL 查询失败", err);
@@ -24,6 +26,7 @@ export const AddNewBiwulianbing = async (req, res) => {
   try {
     const {
       id,
+      i,
       project,
       content,
       header_office,
@@ -31,19 +34,19 @@ export const AddNewBiwulianbing = async (req, res) => {
       date,
       manager,
       responsibler,
-      contact, // 现在是一个数组或对象
+      contact,
       progress,
-      CreatedAt,
     } = req.body;
 
     await pool.query(
       `INSERT INTO Biwulianbing
-         (id, project, content, header_office,
+         (id, i, project, content, header_office,
           duration, date, manager, responsibler,
-          contact, progress, CreatedAt)
+          contact, progress)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
+        i,
         project,
         content,
         header_office,
@@ -53,7 +56,6 @@ export const AddNewBiwulianbing = async (req, res) => {
         responsibler,
         JSON.stringify(contact), // 序列化为 JSON
         progress,
-        CreatedAt,
       ]
     );
 
@@ -101,6 +103,7 @@ export const EditBiwulianbingByID = async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      i,
       project,
       content,
       header_office,
@@ -110,22 +113,15 @@ export const EditBiwulianbingByID = async (req, res) => {
       responsibler,
       contact,
       progress,
-      CreatedAt,
     } = req.body;
 
     // 1) normalize contact JSON
     const contactJson = JSON.stringify(contact);
 
-    // 2) normalize CreatedAt into "YYYY-MM-DD HH:MM:SS"
-    let createdAtFormatted = CreatedAt;
-    if (typeof CreatedAt === "string") {
-      const d = new Date(CreatedAt);
-      createdAtFormatted = d.toISOString().slice(0, 19).replace("T", " ");
-    }
-
     const sql = `
       UPDATE Biwulianbing SET
         project       = ?,
+        i             = ?,
         content       = ?,
         header_office = ?,
         duration      = ?,
@@ -134,11 +130,11 @@ export const EditBiwulianbingByID = async (req, res) => {
         responsibler  = ?,
         contact       = ?,
         progress      = ?,
-        CreatedAt     = ?
       WHERE id = ?
     `;
     const params = [
       project,
+      i,
       content,
       header_office,
       duration,
@@ -147,7 +143,6 @@ export const EditBiwulianbingByID = async (req, res) => {
       responsibler,
       contactJson,
       progress,
-      createdAtFormatted,
       id,
     ];
 
@@ -159,5 +154,51 @@ export const EditBiwulianbingByID = async (req, res) => {
   } catch (err) {
     console.error("MySQL 更新失败", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// 数据升序：将 i 与 i-1 交换
+export const IncreaseBiwulianbingOrderByI = async (req, res) => {
+  const i = parseInt(req.params.i, 10);
+  if (isNaN(i) || i <= 1) return res.status(400).json({ error: "invalid i" });
+  const prev = i - 1;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    // 用 0 做占位（i 从 1 开始）
+    await conn.query("UPDATE Biwulianbing SET i = 0 WHERE i = ?", [prev]);
+    await conn.query("UPDATE Biwulianbing SET i = ? WHERE i = ?", [prev, i]);
+    await conn.query("UPDATE Biwulianbing SET i = ? WHERE i = 0", [i]);
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+};
+
+// 数据降序：将 i 与 i+1 交换
+export const DecreaseBiwulianbingOrderByI = async (req, res) => {
+  const i = parseInt(req.params.i, 10);
+  if (isNaN(i)) return res.status(400).json({ error: "invalid i" });
+
+  const next = i + 1;
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+    // 用 0 做占位
+    await conn.query("UPDATE Biwulianbing SET i = 0 WHERE i = ?", [next]);
+    await conn.query("UPDATE Biwulianbing SET i = ? WHERE i = ?", [next, i]);
+    await conn.query("UPDATE Biwulianbing SET i = ? WHERE i = 0", [i]);
+    await conn.commit();
+    res.json({ success: true });
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
   }
 };
